@@ -43,41 +43,74 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         item.menu = menu
         item.button?.toolTip = "Everest"
         refreshIcon()
-        // The icon dims while the keyboard is away and shows a dot for a
-        // missing permission.
-        model.$connected.combineLatest(model.$accessibilityOK, model.updates.$phase)
+        // The icon dims while the keyboard is away and shows a dot for
+        // something to do, listed first in the menu.
+        model.$connected.combineLatest(model.$accessibilityOK, model.updates.$phase, model.$codexBarAccess)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _, _, _ in self?.refreshIcon() }
+            .sink { [weak self] _, _, _, _ in self?.refreshIcon() }
             .store(in: &bag)
     }
 
+    private var updateWaiting: Bool { model.updates.isEnabled && model.updates.phase != .idle }
+
     private func refreshIcon() {
-        // A dot: a permission is missing, or an update is waiting.
-        let img = BrandMark.menuBarImage(dot: !model.accessibilityOK || model.updates.phase != .idle)
+        // A dot: a permission is missing, or an update is waiting; the
+        // tooltip says which, the top of the menu fixes it.
+        let img = BrandMark.menuBarImage(dot: !model.accessibilityOK || model.codexBarBlocked || updateWaiting)
         img.accessibilityDescription = "Everest"
         item.button?.image = img
         item.button?.appearsDisabled = !model.connected
+        item.button?.toolTip = !model.accessibilityOK ? tr("menu.tipAccessibility")
+            : model.codexBarBlocked ? tr("menu.tipCodexBar")
+            : updateWaiting ? tr("menu.tipUpdate") : "Everest"
+    }
+
+    /// An orange menu item: something needs the user.
+    private func alert(_ title: String, symbol: String, _ handler: @escaping () -> Void) -> BlockItem {
+        let item = BlockItem(title, symbol: symbol, handler: handler)
+        item.image = item.image?.withSymbolConfiguration(.init(paletteColors: [.systemOrange]))
+        return item
     }
 
     // MARK: - Menu
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        menu.autoenablesItems = false
 
-        menu.addItem(BlockItem(tr("menu.about"), symbol: "info.circle") { [about] in about() })
-        if model.updates.isEnabled {
-            let updates = model.updates
+        // What the dot on the icon is about, first.
+        var alerts = false
+        if !model.accessibilityOK {
+            menu.addItem(alert(tr("menu.allowAccessibility"), symbol: "exclamationmark.triangle.fill") { [openWindow] in
+                openWindow(.system)
+            })
+            alerts = true
+        }
+        if model.codexBarBlocked {
+            menu.addItem(alert(tr("menu.codexBarAccess"), symbol: "exclamationmark.triangle.fill") { [openWindow] in
+                openWindow(.displaypad)
+            })
+            alerts = true
+        }
+        let updates = model.updates
+        if updates.isEnabled {
             switch updates.phase {
             case .ready(let version):
-                menu.addItem(BlockItem(tr("updates.restart", version), symbol: "arrow.clockwise.circle.fill") { updates.performPrimaryAction() })
+                menu.addItem(alert(tr("updates.restart", version), symbol: "arrow.clockwise.circle.fill") { updates.performPrimaryAction() })
+                alerts = true
             case .available(let version):
-                menu.addItem(BlockItem(tr("updates.available", version), symbol: "arrow.down.circle.fill") { updates.performPrimaryAction() })
-            case .idle:
-                let check = BlockItem(tr("updates.check"), symbol: "arrow.down.circle") { updates.checkForUpdates() }
-                check.isEnabled = updates.canCheck
-                menu.autoenablesItems = false
-                menu.addItem(check)
+                menu.addItem(alert(tr("updates.available", version), symbol: "arrow.down.circle.fill") { updates.performPrimaryAction() })
+                alerts = true
+            case .idle: break
             }
+        }
+        if alerts { menu.addItem(.separator()) }
+
+        menu.addItem(BlockItem(tr("menu.about"), symbol: "info.circle") { [about] in about() })
+        if updates.isEnabled, updates.phase == .idle {
+            let check = BlockItem(tr("updates.check"), symbol: "arrow.down.circle") { updates.checkForUpdates() }
+            check.isEnabled = updates.canCheck
+            menu.addItem(check)
         }
         menu.addItem(.separator())
 

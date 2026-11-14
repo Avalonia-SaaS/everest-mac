@@ -183,6 +183,8 @@ final class EverestModel: ObservableObject {
     var daemonRestarts = 0
     @Published var keyUpload: KeyUpload?
     var quitting = false
+    private var checkingAccessibility = false
+    private var lastAccessibilityCheck = Date.distantPast
     @Published var launchAtLogin = LoginItem.enabled
     @Published var loginItemNote: String?
 
@@ -238,8 +240,50 @@ final class EverestModel: ObservableObject {
         }
     }
 
+    /// Accessibility, for the banner and the dot on the menu-bar icon. While
+    /// it is missing, a child process asks (see `accessibilityGrantedFresh`),
+    /// so granting it shows here within a poll. Just granted: the listener
+    /// checked at its start and macOS may keep dropping its key events until
+    /// it starts again, so it is restarted.
+    private func checkAccessibility() {
+        if ActionRunner.accessibilityGranted() {
+            setAccessibility(true)
+            return
+        }
+        // This process says no, which may be stale: a child decides, each
+        // poll while missing, every 30 s once it said yes.
+        let now = Date()
+        guard !checkingAccessibility, !Self.snapshotMode,
+              now.timeIntervalSince(lastAccessibilityCheck) >= (accessibilityOK ? 30 : 0) else { return }
+        checkingAccessibility = true
+        lastAccessibilityCheck = now
+        DispatchQueue.global().async { [weak self] in
+            let granted = ActionRunner.accessibilityGrantedFresh()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.checkingAccessibility = false
+                self.setAccessibility(granted)
+            }
+        }
+    }
+
+    private func setAccessibility(_ granted: Bool) {
+        guard granted != accessibilityOK else { return }
+        accessibilityOK = granted
+        guard granted, let old = daemonProcess else { return }
+        stopDaemon()
+        // Once the old one has let go of its lock.
+        DispatchQueue.global().async { [weak self] in
+            old.waitUntilExit()
+            DispatchQueue.main.async {
+                guard let self, self.config.daemonEnabled, !self.quitting else { return }
+                self.startDaemon()
+            }
+        }
+    }
+
     func pollProfile() {
-        accessibilityOK = ActionRunner.accessibilityGranted()
+        checkAccessibility()
         padConnected = DisplayPad.isPresent
         padState = daemonRunning && padConnected ? PadState.read() : nil
         if config.padButtons.contains(where: { $0.live != nil }) { liveSample = Metrics.latest(maxAge: 1.5) }

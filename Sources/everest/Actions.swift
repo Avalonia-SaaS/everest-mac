@@ -68,6 +68,23 @@ enum ActionRunner {
         return AXIsProcessTrustedWithOptions(options)
     }
 
+    /// The same, asked by a new process of this binary (`everest ax-check`).
+    /// A running app can keep getting the answer it got at launch after the
+    /// user grants the permission (seen on macOS 27); a child process, which
+    /// macOS attributes to the app as it does the listener, gets the current
+    /// one. Blocks for a few milliseconds: call it off the main thread.
+    static func accessibilityGrantedFresh() -> Bool {
+        guard let exe = Bundle.main.executablePath else { return accessibilityGranted() }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: exe)
+        p.arguments = ["ax-check"]
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return accessibilityGranted() }
+        p.waitUntilExit()
+        return p.terminationStatus == 0
+    }
+
     private static let keyCodes: [String: CGKeyCode] = [
         "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9,
         "b": 11, "q": 12, "w": 13, "e": 14, "r": 15, "y": 16, "t": 17,

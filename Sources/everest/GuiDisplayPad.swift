@@ -133,6 +133,9 @@ struct DisplayPadPage: View {
             if !model.accessibilityOK {
                 AccessibilityBanner(model: model)
             }
+            if model.codexBarBlocked {
+                CodexBarBanner(model: model)
+            }
             if !model.daemonRunning {
                 DaemonStoppedBanner(model: model, note: tr("pad.daemonStoppedNote"))
             }
@@ -282,7 +285,7 @@ struct DisplayPadHero: View {
         .overlay(alignment: .topTrailing) {
             // Claude / Codex key that cannot read CodexBar: one click to the setting.
             if model.config.padButtons[i].live?.needsCodexBar == true && model.codexBarAccess == .denied {
-                Button { CodexBarUsage.showFullDiskAccess() } label: {
+                Button { model.repairCodexBarAccess() } label: {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: max(10, keySize * 0.16), weight: .bold))
                         .foregroundStyle(.white)
@@ -295,6 +298,33 @@ struct DisplayPadHero: View {
             }
         }
         .help(model.config.padButtons[i].title.flatMap { $0.isEmpty ? nil : $0 } ?? "P\(i + 1)")
+    }
+}
+
+/// Claude / Codex keys on the pad that cannot read CodexBar's data: what it
+/// means and the fix, as for Accessibility. The menu-bar icon shows a dot
+/// meanwhile, and its first items lead here.
+struct CodexBarBanner: View {
+    @ObservedObject var model: EverestModel
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            IconBadge(icon: "externaldrive.fill.badge.exclamationmark", tint: Theme.amber, size: 30)
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(tr("codexbar.denied")).font(.ui(13, .semibold)).foregroundStyle(Theme.text)
+                    Text(tr("codexbar.bannerNote"))
+                        .font(.ui(11.5)).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                NumberedSteps(key: "codexbar.step", count: 3, tint: Theme.amber)
+            }
+            Spacer(minLength: 8)
+            Button { model.repairCodexBarAccess() } label: { Label(tr("codexbar.repair"), systemImage: "wrench.and.screwdriver") }
+                .buttonStyle(.primary(Theme.amber))
+        }
+        .padding(14)
+        .background(SurfaceBackground(fill: Theme.amber.opacity(0.07)))
     }
 }
 
@@ -317,7 +347,7 @@ struct CodexBarAccessRow: View {
             }
             Spacer(minLength: 8)
             if !ok {
-                Button(tr("codexbar.openSettings")) { CodexBarUsage.showFullDiskAccess() }
+                Button(tr("codexbar.repair")) { model.repairCodexBarAccess() }
                     .buttonStyle(.compact(.primary))
             }
         }

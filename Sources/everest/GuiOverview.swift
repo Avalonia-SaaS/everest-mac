@@ -139,6 +139,12 @@ struct OverviewPage: View {
 
     var body: some View {
         VStack(spacing: 18) {
+            if !model.accessibilityOK {
+                AccessibilityBanner(model: model)
+            }
+            if model.codexBarBlocked {
+                CodexBarBanner(model: model)
+            }
             // Hero
             VStack(spacing: 0) {
                 KeyboardHero(model: model, height: 360)

@@ -25,8 +25,23 @@ final class LogicTests: XCTestCase {
             var opened = false
             var about = false
             var quit = false
-            let controller = StatusBarController(model: model, openWindow: { _ in opened = true },
+            var section: Section?
+            let controller = StatusBarController(model: model, openWindow: { opened = true; section = $0 },
                                                  about: { about = true }, quit: { quit = true })
+
+            // A missing permission comes first, in its own group, and leads
+            // to the page that explains it.
+            model.accessibilityOK = false
+            let warned = NSMenu()
+            controller.menuNeedsUpdate(warned)
+            XCTAssertEqual(warned.items.first?.title, tr("menu.allowAccessibility"))
+            XCTAssertEqual(warned.items.dropFirst().first?.isSeparatorItem, true)
+            let warning = warned.items[0]
+            XCTAssertTrue(NSApp.sendAction(warning.action!, to: warning.target, from: warning))
+            XCTAssertEqual(section, .system)
+            opened = false
+
+            model.accessibilityOK = true
             let menu = NSMenu()
             controller.menuNeedsUpdate(menu)
             let actions = menu.items.filter { !$0.isSeparatorItem }

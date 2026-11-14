@@ -537,6 +537,10 @@ case "night":
     if NightMode.active && Config.load().nightSleepsDisplays { Thread.sleep(forTimeInterval: 4.5) }
     print(NightMode.active ? "Night mode on: lights off, sound muted (run `everest night` again, or press the night key, to undo)"
                            : "Night mode off: lights and sound back as they were")
+case "ax-check":
+    // Internal (the app's banner): a fresh process sees a permission just
+    // granted, which the long-running app process may not.
+    exit(ActionRunner.accessibilityGranted() ? 0 : 1)
 case "sniff": Daemon.sniff(rest)
 case "keys": Keys.dump(rest)
 case "feature-test": Command.featureProbe()

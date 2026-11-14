@@ -98,6 +98,55 @@ extension EverestModel {
         }
     }
 
+    /// The fix for a ticked entry that no longer matches this copy of the
+    /// app (macOS keeps the signature it saw when the box was ticked: a
+    /// build signed differently, or the same name pointing at another copy,
+    /// shows ticked and gets nothing). `tccutil` forgets Everest's entry,
+    /// then asking again makes macOS add a fresh one and show its own
+    /// dialog. If the reset fails, the list opens for the manual steps.
+    func repairAccessibility() {
+        let id = Bundle.main.bundleIdentifier ?? "com.mrrcalendar.everest"
+        DispatchQueue.global().async { [weak self] in
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+            p.arguments = ["reset", "Accessibility", id]
+            p.standardOutput = FileHandle.nullDevice
+            p.standardError = FileHandle.nullDevice
+            let reset = (try? p.run()) != nil && { p.waitUntilExit(); return p.terminationStatus == 0 }()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if reset {
+                    _ = ActionRunner.accessibilityGranted(prompt: true)
+                } else {
+                    self.openAccessibilitySettings()
+                }
+            }
+        }
+    }
+
+    /// Claude / Codex keys on the pad that cannot read CodexBar's data.
+    var codexBarBlocked: Bool {
+        codexBarAccess == .denied && config.padButtons.contains { $0.live?.needsCodexBar == true }
+    }
+
+    /// Full Disk Access for CodexBar's data: as for Accessibility, a ticked
+    /// entry may no longer match this copy of the app, and dragging the app
+    /// onto it changes nothing. `tccutil` forgets it first; an app cannot add
+    /// itself to this list, so the setting and a Finder window showing
+    /// Everest open next, ready to drag. macOS then offers "Quit & Reopen".
+    func repairCodexBarAccess() {
+        let id = Bundle.main.bundleIdentifier ?? "com.mrrcalendar.everest"
+        DispatchQueue.global().async {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+            p.arguments = ["reset", "SystemPolicyAllFiles", id]
+            p.standardOutput = FileHandle.nullDevice
+            p.standardError = FileHandle.nullDevice
+            if (try? p.run()) != nil { p.waitUntilExit() }
+            DispatchQueue.main.async { CodexBarUsage.showFullDiskAccess() }
+        }
+    }
+
     func recover() {
         runDevice(tr("status.recovering")) { kb in
             kb.recover()

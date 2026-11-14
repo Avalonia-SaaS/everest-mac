@@ -534,6 +534,9 @@ struct SystemPage: View {
 
     var body: some View {
         VStack(spacing: 18) {
+            if !model.accessibilityOK {
+                AccessibilityBanner(model: model)
+            }
             Card(tr("settings.language.title"), subtitle: tr("settings.language.note"),
                  icon: "globe", tint: Theme.sky) {
                 HStack {
@@ -665,26 +668,61 @@ struct SystemPage: View {
     }
 }
 
+/// Numbered steps of a fix, from the keys `<key>1` … `<key><count>`.
+struct NumberedSteps: View {
+    let key: String
+    let count: Int
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(1...count, id: \.self) { n in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("\(n)").font(.ui(11, .bold)).foregroundStyle(tint)
+                        .frame(width: 18, height: 18)
+                        .background(Circle().fill(tint.opacity(0.14)))
+                    Text(tr("\(key)\(n)"))
+                        .font(.ui(11.5)).foregroundStyle(Theme.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+}
+
 /// Shown when macOS has not (or no longer) granted Accessibility to Everest:
-/// shortcut and typed-text actions are then dropped without any error.
+/// shortcut and typed-text actions are then dropped without any error. The
+/// menu-bar icon shows a dot meanwhile, and its first item leads here. It
+/// walks through the fix, including the stale entry a new build leaves
+/// ticked; once granted, the app restarts the listener and this goes away.
 struct AccessibilityBanner: View {
     @ObservedObject var model: EverestModel
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             IconBadge(icon: "hand.raised.fill", tint: Theme.rose, size: 30)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(tr("system.noAccessibility")).font(.ui(13, .semibold)).foregroundStyle(Theme.text)
-                Text(tr("system.noAccessibilityNote"))
-                    .font(.ui(11.5)).foregroundStyle(Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(tr("system.noAccessibility")).font(.ui(13, .semibold)).foregroundStyle(Theme.text)
+                    Text(tr("system.noAccessibilityNote"))
+                        .font(.ui(11.5)).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(tr("system.repairNote"))
+                    .font(.ui(11.5, .medium)).foregroundStyle(Theme.text)
                     .fixedSize(horizontal: false, vertical: true)
+                NumberedSteps(key: "system.accessStep", count: 4, tint: Theme.rose)
             }
             Spacer(minLength: 8)
-            VStack(spacing: 6) {
-                Button { model.openAccessibilitySettings() } label: { Label(tr("system.openSettings"), systemImage: "gearshape") }
+            VStack(alignment: .trailing, spacing: 6) {
+                Button { model.repairAccessibility() } label: { Label(tr("system.repair"), systemImage: "wrench.and.screwdriver") }
                     .buttonStyle(.primary(Theme.rose))
-                Button { _ = ActionRunner.accessibilityGranted(prompt: true) } label: { Text(tr("system.askAgain")) }
+                Button { model.openAccessibilitySettings() } label: { Label(tr("system.openSettings"), systemImage: "gearshape") }
                     .buttonStyle(.compact())
+                Button { NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL]) } label: {
+                    Label(tr("system.revealApp"), systemImage: "folder")
+                }
+                .buttonStyle(.compact())
             }
         }
         .padding(14)
