@@ -1,0 +1,12 @@
+{
+  "version": "0.2.2",
+  "date": "2026-11-14",
+  "headline": "Night mode wakes up cleanly, and the dot on the menu-bar icon now tells you what to fix.",
+  "items": [
+    { "title": "Waking from night mode", "detail": "After the night key, the screens stay on until you have unlocked your Mac. They no longer go dark again, and lock the session, a few seconds after you unlock." },
+    { "title": "The menu-bar dot, explained", "detail": "Hover the icon to see why it shows a dot. The menu now lists what needs you first: a missing permission or an update waiting." },
+    { "title": "Permissions repaired in one click", "detail": "When Accessibility or Full Disk Access stops working while Everest is still ticked in System Settings, a Repair button resets the entry and asks again, with the steps shown alongside." },
+    { "title": "Claude and Codex keys", "detail": "When Everest cannot read CodexBar's data, the menu-bar icon, the menu and the DisplayPad page now say so and lead to the fix." },
+    { "title": "Dated logs", "detail": "Every line of the listener's log now starts with its date." }
+  ]
+}

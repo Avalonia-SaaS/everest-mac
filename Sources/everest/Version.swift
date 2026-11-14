@@ -4,7 +4,7 @@ import Foundation
 /// reads it for Info.plist and stamps the build (the commit count, `+` when
 /// built from uncommitted changes), so the window shows which build is running.
 enum AppVersion {
-    static let number = "0.2.1"
+    static let number = "0.2.2"
     static let bundleIdentifier = "com.mrrcalendar.everest"
     /// The identifier before 0.2.0: still found in saved D1 actions.
     static let legacyBundleIdentifier = "local.everest-mac"
