@@ -15,13 +15,18 @@ import IOKit.pwr_mgt
 ///   (the tables apply after capture); when the session lets go, they sleep
 ///   again. macOS restores the tables by itself when this process ends, so a
 ///   crash or a quit never leaves the screens black.
+/// - Night mode over: the screens are held on until the session has been
+///   unlocked and used (`wakeHold`). `NightMode.end` wakes them with a
+///   2-second "user is active" assertion; when it times out with no real
+///   input since the night began, macOS dims them and turns them off 10 s
+///   later, typing on the lock screen or not, and the session locks again.
 ///
 /// A night begun before the last restart is not enforced (the daemon ends
 /// it as it starts).
 enum NightScreens {
     private static func log(_ s: String) {
         let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
         stderr("\(f.string(from: Date())) screens: \(s)")
     }
 
@@ -54,6 +59,18 @@ enum NightScreens {
         return elapsed >= 20 ? .nightAgain : .wait
     }
 
+    /// After night mode ends, while the screens are held on: let go once the
+    /// session has been unlocked for a few seconds and someone used the
+    /// keyboard or mouse since the night ended (macOS's own idle timer then
+    /// counts from that input), or after a minute whatever happens.
+    /// `unlockedFor`: nil while locked. `inputSinceEnd`: nil when the idle
+    /// time cannot be read.
+    static func wakeHold(heldFor: TimeInterval, unlockedFor: TimeInterval?, inputSinceEnd: Bool?) -> Bool {
+        if heldFor >= 60 { return false }
+        guard let unlocked = unlockedFor, unlocked >= 5 else { return true }
+        return inputSinceEnd == false
+    }
+
     private static func run() {
         var nightSince: Date?
         var displays = true
@@ -62,6 +79,15 @@ enum NightScreens {
         var awakeSince: Date?
         var remoteName: String?
         var wokenAt: Date?   // night mode ended by a wake, on trial
+        var hold: IOPMAssertionID?   // screens held on after the night
+        var heldSince = Date(), unlockedAt: Date?
+
+        func releaseHold(_ why: String) {
+            guard let id = hold else { return }
+            IOPMAssertionRelease(id)
+            hold = nil
+            log("screens no longer held on (\(why))")
+        }
 
         while true {
             autoreleasepool {
@@ -71,10 +97,33 @@ enum NightScreens {
                 if night {
                     if nightSince == nil { nightSince = now }
                     wokenAt = nil   // the night key again
+                    releaseHold("night mode again")
                     let stamp = Config.fileStamp
                     if stamp != configStamp { configStamp = stamp; displays = Config.load().nightSleepsDisplays }
                 } else {
+                    if nightSince != nil, displays, hold == nil {
+                        var id = IOPMAssertionID(0)
+                        if IOPMAssertionCreateWithName(kIOPMAssertPreventUserIdleDisplaySleep as CFString,
+                                                       IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                                                       "Everest: screens on after night mode" as CFString,
+                                                       &id) == kIOReturnSuccess {
+                            hold = id
+                            heldSince = now
+                            unlockedAt = nil
+                            log("night mode over — screens held on until the session is unlocked")
+                        }
+                    }
                     nightSince = nil
+                }
+
+                if hold != nil {
+                    if sessionLocked() { unlockedAt = nil } else { unlockedAt = unlockedAt ?? now }
+                    let heldFor = now.timeIntervalSince(heldSince)
+                    let input = hidIdleTime().map { $0 < heldFor }
+                    if !wakeHold(heldFor: heldFor, unlockedFor: unlockedAt.map { now.timeIntervalSince($0) },
+                                 inputSinceEnd: input) {
+                        releaseHold(unlockedAt == nil ? "still locked after 60 s" : "session unlocked")
+                    }
                 }
 
                 if let t = wokenAt {
@@ -124,7 +173,7 @@ enum NightScreens {
                     blackedOut = false
                 }
             }
-            Thread.sleep(forTimeInterval: nightSince == nil && !blackedOut && wokenAt == nil ? 1 : 0.5)
+            Thread.sleep(forTimeInterval: nightSince == nil && !blackedOut && wokenAt == nil && hold == nil ? 1 : 0.5)
         }
     }
 
@@ -155,14 +204,26 @@ enum NightScreens {
         onlineDisplays().contains { CGDisplayIsAsleep($0) == 0 }
     }
 
+    /// Seconds since the last keyboard or mouse input (IOHIDSystem's
+    /// `HIDIdleTime`, readable while the session is locked).
+    private static func hidIdleTime() -> TimeInterval? {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOHIDSystem"))
+        guard service != 0 else { return nil }
+        defer { IOObjectRelease(service) }
+        guard let ns = IORegistryEntryCreateCFProperty(service, "HIDIdleTime" as CFString, kCFAllocatorDefault, 0)?
+            .takeRetainedValue() as? NSNumber else { return nil }
+        return ns.doubleValue / 1_000_000_000
+    }
+
     /// A process other than macOS's own holding the screens awake: a remote
     /// session (RustDesk, Screen Sharing, TeamViewer…), or failing that
-    /// anything else that wants them on, which is left alone too.
+    /// anything else that wants them on, which is left alone too. Everest's
+    /// own hold after the night (`wakeHold`) does not count.
     static func remoteSession() -> String? {
         var byPID: Unmanaged<CFDictionary>?
         guard IOPMCopyAssertionsByProcess(&byPID) == kIOReturnSuccess,
               let all = byPID?.takeRetainedValue() as? [NSNumber: [[String: Any]]] else { return nil }
-        let system: Set<String> = ["powerd", "WindowServer", "loginwindow", "coreaudiod"]
+        let system: Set<String> = ["powerd", "WindowServer", "loginwindow", "coreaudiod", ProcessInfo.processInfo.processName]
         for (_, list) in all {
             for a in list where (a[kIOPMAssertionTypeKey] as? String) == kIOPMAssertPreventUserIdleDisplaySleep
                 && (a["AssertLevel"] as? Int ?? 0) > 0 {

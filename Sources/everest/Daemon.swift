@@ -27,7 +27,7 @@ enum FlashBusy {
 enum Daemon {
     private static func log(_ s: String) {
         let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
         stderr("\(f.string(from: Date())) \(s)")
     }
 

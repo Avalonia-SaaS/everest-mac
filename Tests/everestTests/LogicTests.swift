@@ -131,6 +131,18 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(S.trial(elapsed: 5, locked: false, remote: true), .nightAgain, "a remote session: dark on the desk")
     }
 
+    /// After the night, the screens stay held on while the session is locked,
+    /// and a few seconds after it is unlocked and used; never beyond a minute.
+    func testNightWakeHold() {
+        typealias S = NightScreens
+        XCTAssertTrue(S.wakeHold(heldFor: 11, unlockedFor: nil, inputSinceEnd: true), "typing the password")
+        XCTAssertTrue(S.wakeHold(heldFor: 12, unlockedFor: 1, inputSinceEnd: true), "just unlocked")
+        XCTAssertFalse(S.wakeHold(heldFor: 16, unlockedFor: 5, inputSinceEnd: true))
+        XCTAssertTrue(S.wakeHold(heldFor: 16, unlockedFor: 5, inputSinceEnd: false), "no password asked, nobody touched anything yet")
+        XCTAssertFalse(S.wakeHold(heldFor: 16, unlockedFor: 5, inputSinceEnd: nil))
+        XCTAssertFalse(S.wakeHold(heldFor: 60, unlockedFor: nil, inputSinceEnd: true), "nobody unlocked it")
+    }
+
     /// A night from before the restart ends; one from this boot, or an old
     /// file without a boot time, stays.
     func testNightEndsAfterRestart() {
