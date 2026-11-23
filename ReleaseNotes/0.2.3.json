@@ -1,0 +1,8 @@
+{
+  "version": "0.2.3",
+  "date": "2026-11-23",
+  "headline": "Everest no longer grows in memory over the days.",
+  "items": [
+    { "title": "Memory leak fixed", "detail": "The background listener kept every temporary object it created, a few kilobytes a second: after a week it could hold several gigabytes. It now stays at a few megabytes however long it runs. The same fix applies to Mac-rendered lighting." }
+  ]
+}
