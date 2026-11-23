@@ -323,7 +323,7 @@ enum Command {
         stderr("Monitor loop running — Ctrl-C to stop")
         var tick = 0
         var lastClock = Date.distantPast
-        while true {
+        while true { autoreleasepool {
             let m = Metrics.sample()
             kb.sendMetric(index: 0, value: m.cpu)
             kb.sendMetric(index: 1, value: m.gpu)
@@ -338,7 +338,7 @@ enum Command {
             tick += 1
             if tick % 25 == 0 { stderr("  cpu \(m.cpu)% ram \(m.ram)% net \(m.networkMBs) MB/s") }
             Thread.sleep(forTimeInterval: 0.2)
-        }
+        } }
     }
 
     static func resetDial() {

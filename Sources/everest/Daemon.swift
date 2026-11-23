@@ -96,7 +96,10 @@ enum Daemon {
         NightScreens.start()
 
         var waiting: String?
-        while true {
+        // This loop runs on the main thread with no run loop to drain
+        // autoreleased objects: each pass has its own pool, or every attempt
+        // and every session tick piles up for the life of the process.
+        while true { autoreleasepool {
             let kb: Keyboard
             do {
                 kb = try Keyboard()
@@ -107,7 +110,7 @@ enum Daemon {
                 let why = error is Keyboard.OpenError ? "keyboard left alone — \(error)" : "keyboard not found — waiting for it"
                 if waiting != why { log(why); waiting = why }
                 Thread.sleep(forTimeInterval: error is Keyboard.OpenError ? 3 : 1)
-                continue
+                return
             }
             waiting = nil
             log("keyboard connected")
@@ -116,7 +119,7 @@ enum Daemon {
             kb.close()
             log("keyboard connection lost — reconnecting")
             Thread.sleep(forTimeInterval: 1)
-        }
+        } }
     }
 
     /// One connection's worth of work; returns when the keyboard is gone.
@@ -183,14 +186,17 @@ enum Daemon {
         var configStamp = configDate()
         var lastConfigCheck = Date()
 
-        while true {
+        // One pass of the session; false once the keyboard is gone. Each pass
+        // drains its own autorelease pool (see `listen`): the front-app
+        // query, the marker and config stat calls all autorelease objects.
+        func tick() -> Bool {
             let now = Date()
 
             // A picture upload owns the channel: stay quiet until it is done.
             if FlashBusy.active {
                 lastReply = now
                 Thread.sleep(forTimeInterval: 0.3)
-                continue
+                return true
             }
 
             // A failed write means the device is gone (unplugged, or the
@@ -204,7 +210,7 @@ enum Daemon {
                     try kb.transport.write(Proto.packet([0x11, 0x00]))
                 }
             } catch {
-                return
+                return false
             }
 
             // Profiles linked to apps.
@@ -295,7 +301,7 @@ enum Daemon {
 
             // The keyboard answers the keep-alive every second; silence for
             // 6 s means the handle is stale (e.g. replugged on another port).
-            if now.timeIntervalSince(lastReply) > 6 { return }
+            if now.timeIntervalSince(lastReply) > 6 { return false }
 
             if cfg.monitorMode, now.timeIntervalSince(lastMetrics) >= 0.5 {
                 lastMetrics = now
@@ -315,7 +321,9 @@ enum Daemon {
             }
 
             Thread.sleep(forTimeInterval: 0.15)
+            return true
         }
+        while autoreleasepool(invoking: tick) {}
     }
 
     /// `everest sniff [seconds]` — raw packet dump, for reverse engineering

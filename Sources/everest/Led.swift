@@ -561,11 +561,13 @@ final class LedPlayer {
             var connectedOnce = false
             // One pass per connection: if the keyboard is unplugged the
             // writes fail, the session is dropped and reopened when it is back.
-            while self.running {
+            // A Thread's own autorelease pool drains only when it exits:
+            // each attempt and each frame gets a pool of its own.
+            while self.running { autoreleasepool {
                 guard let kb = try? Keyboard() else {
                     if !announced { self.onConnection?(false); announced = true }
                     Thread.sleep(forTimeInterval: 1)
-                    continue
+                    return
                 }
                 if announced || !connectedOnce { self.onConnection?(true) }
                 connectedOnce = true
@@ -574,9 +576,9 @@ final class LedPlayer {
                 let stream = FrameStream(keyboard: kb)
                 stream.prepare()
                 var failures = 0
-                while self.running && failures < 5 {
+                while self.running && failures < 5 { autoreleasepool {
                     // A picture upload owns the channel for a while.
-                    if FlashBusy.active { Thread.sleep(forTimeInterval: 0.3); continue }
+                    if FlashBusy.active { Thread.sleep(forTimeInterval: 0.3); return }
                     let frameStart = Date()
                     let frame = LedRenderer.render(self.currentEffect, time: frameStart.timeIntervalSince(t0))
                     self.lock.lock(); self.lastFrame = frame; self.lock.unlock()
@@ -592,10 +594,10 @@ final class LedPlayer {
                     }
                     let spent = Date().timeIntervalSince(frameStart)
                     if spent < interval { Thread.sleep(forTimeInterval: interval - spent) }
-                }
+                } }
                 kb.close()
                 if self.running { Thread.sleep(forTimeInterval: 1) }
-            }
+            } }
         }
         thread?.name = "everest.led"
         thread?.start()
