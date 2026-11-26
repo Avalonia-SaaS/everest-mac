@@ -116,7 +116,7 @@ extension EverestModel {
     func tickPreview() {
         // Nothing to draw into: the window is closed (menu-bar only) or
         // hidden behind others.
-        guard NSApp.windows.contains(where: { $0.isVisible && $0.occlusionState.contains(.visible) && $0.contentView is NSHostingView<RootView> }) else { return }
+        guard windowShown else { return }
         let frame: LedRenderer.Frame
         let t = Date().timeIntervalSinceReferenceDate
         if let player {

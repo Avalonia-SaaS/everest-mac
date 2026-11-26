@@ -37,6 +37,9 @@ final class EverestAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     func showWindow(_ section: Section? = nil) {
         if let section { model.section = section }
         NSApp.setActivationPolicy(model.config.hideDockIcon ? .accessory : .regular)
+        if let window, !(window.contentView is NSHostingView<RootView>) {
+            window.contentView = NSHostingView(rootView: RootView(model: model))
+        }
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -59,6 +62,14 @@ final class EverestAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         guard notification.object as? NSWindow === window else { return }
         if model.config.keepRunning {
             NSApp.setActivationPolicy(.accessory)
+            // A closed window's SwiftUI view still re-evaluates every page on
+            // each model change (the pad's live tiles, the keyboard drawing):
+            // about 15 % of a core all day long in the menu bar. The view is
+            // dropped here and built again by `showWindow`.
+            DispatchQueue.main.async { [weak self] in
+                guard let window = self?.window, !window.isVisible else { return }
+                window.contentView = nil
+            }
         } else {
             NSApp.terminate(nil)
         }
@@ -148,7 +159,8 @@ final class EverestAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         window.minSize = NSSize(width: 1080, height: 720)
         window.center()
         window.setFrameAutosaveName("EverestMain")
-        window.contentView = NSHostingView(rootView: RootView(model: model))
+        // The SwiftUI content is built when the window is shown (`showWindow`):
+        // started at login, the app stays in the menu bar and draws nothing.
         window.isReleasedWhenClosed = false
         window.delegate = self
         self.window = window

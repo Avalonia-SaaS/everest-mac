@@ -50,7 +50,7 @@ Dev aids (not user features): `EVEREST_SNAPSHOT=<dir> Everest.app/Contents/MacOS
 
 **Layouts** (`Layouts.swift`, `LedLayout.swift`, generated `LayoutLegends.swift`): the layout code comes from the reply to `11 12` (byte 4). `LedLayout` is a global switchable set of derived tables (`LedLayout.use(_:)`, then `keys`, `positionTable`, `columns`...). LED index = column×9+row regardless of language; only ANSI vs ISO shape and keycap text change. Only UK-ISO has been verified on hardware. `LayoutLegends.swift` is generated from Base Camp's tables with Mountain's index errors corrected (see its header); regenerate rather than hand-edit.
 
-**App lifecycle** (`Gui.swift`, `MenuBar.swift`): closing the window drops to `.accessory` activation policy and keeps running in the menu bar; the window reopens via the status item or `applicationShouldHandleReopen`. Login item uses `SMAppService` (`LoginItem.swift`).
+**App lifecycle** (`Gui.swift`, `MenuBar.swift`): closing the window drops to `.accessory` activation policy and keeps running in the menu bar; the window reopens via the status item or `applicationShouldHandleReopen`. The window's SwiftUI content exists only while it is shown: `showWindow` builds it, `windowWillClose` drops it (a closed window's view kept re-evaluating every page on each model change, ~15 % of a core in the menu bar). Periodic polling assigns `@Published` values through `update(_:_:)`, only when they change: any assignment re-evaluates every view. Login item uses `SMAppService` (`LoginItem.swift`).
 
 ## Gotchas
 

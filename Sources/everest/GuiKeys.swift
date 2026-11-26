@@ -53,8 +53,16 @@ extension EverestModel {
     func image(for t: KeyTarget) -> NSImage? {
         guard t.isPad else { return displayImages[t.index] }
         let b = config.padButtons[t.index]
-        if let live = b.live, let cg = LiveTiles.image(live, sample: liveSample, side: 128) {
-            return NSImage(cgImage: cg, size: NSSize(width: 128, height: 128))
+        if let live = b.live {
+            // Drawn again only when what it shows changes: every model change
+            // re-evaluates the views, and twelve tiles drawn each time cost.
+            let sig = LiveTiles.signature(live, sample: liveSample)
+            if let (cached, image) = liveTileCache[t.index], cached == sig { return image }
+            if let cg = LiveTiles.image(live, sample: liveSample, side: 128) {
+                let image = NSImage(cgImage: cg, size: NSSize(width: 128, height: 128))
+                liveTileCache[t.index] = (sig, image)
+                return image
+            }
         }
         return b.iconPath.flatMap(ImageFileCache.image)
     }

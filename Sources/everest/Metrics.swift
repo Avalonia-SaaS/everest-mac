@@ -3,7 +3,7 @@ import Darwin
 import Foundation
 import IOKit
 
-struct MetricsSample {
+struct MetricsSample: Equatable {
     var cpu: UInt8 = 0
     var gpu: UInt8 = 0
     var disk: UInt8 = 0

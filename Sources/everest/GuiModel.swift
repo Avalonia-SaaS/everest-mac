@@ -113,6 +113,8 @@ final class EverestModel: ObservableObject {
     /// Values shown on live pad keys in the app (sampled every 2 s while
     /// a key of the selected profile shows one).
     @Published var liveSample = MetricsSample()
+    /// Pad live tiles as last drawn for the window: key index → (what it shows, picture).
+    var liveTileCache: [Int: (String, NSImage)] = [:]
     /// Night mode is on (the state file, checked with the device status).
     @Published var nightMode = NightMode.active
     /// Mac-rendered lighting paused for the night, to resume in the morning.
@@ -282,11 +284,26 @@ final class EverestModel: ObservableObject {
         }
     }
 
+    /// Assign only a new value: every assignment to a `@Published` property
+    /// re-evaluates every view of the window, even with the same value.
+    func update<T: Equatable>(_ key: ReferenceWritableKeyPath<EverestModel, T>, _ value: T) {
+        if self[keyPath: key] != value { self[keyPath: key] = value }
+    }
+
+    /// The main window is on screen, with its SwiftUI content (dropped while
+    /// it is closed, see `windowWillClose`).
+    var windowShown: Bool {
+        NSApp.windows.contains { $0.isVisible && $0.occlusionState.contains(.visible) && $0.contentView is NSHostingView<RootView> }
+    }
+
     func pollProfile() {
         checkAccessibility()
-        padConnected = DisplayPad.isPresent
-        padState = daemonRunning && padConnected ? PadState.read() : nil
-        if config.padButtons.contains(where: { $0.live != nil }) { liveSample = Metrics.latest(maxAge: 1.5) }
+        update(\.padConnected, DisplayPad.isPresent)
+        update(\.padState, daemonRunning && padConnected ? PadState.read() : nil)
+        // Live keys are only drawn in the window: no sampling for nothing.
+        if windowShown, config.padButtons.contains(where: { $0.live != nil }) {
+            update(\.liveSample, Metrics.latest(maxAge: 1.5))
+        }
         if config.padButtons.contains(where: { $0.live?.needsCodexBar == true }) {
             let access = CodexBarUsage.access
             if access != codexBarAccess { codexBarAccess = access }
@@ -299,9 +316,9 @@ final class EverestModel: ObservableObject {
         device.async { [weak self] in
             guard let kb = try? Keyboard(allowUnsupported: true) else {
                 DispatchQueue.main.async {
-                    self?.connected = false
-                    self?.firmwareBlock = nil
-                    self?.attached = tr("device.notConnected")
+                    self?.update(\.connected, false)
+                    self?.update(\.firmwareBlock, nil)
+                    self?.update(\.attached, tr("device.notConnected"))
                 }
                 return
             }
@@ -326,8 +343,8 @@ final class EverestModel: ObservableObject {
             let mode = kb.state().map { $0.mainMode?.rawValue ?? "?" }
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.connected = true
-                if let mode, mode != self.dialMode { self.dialMode = mode }
+                self.update(\.connected, true)
+                if let mode { self.update(\.dialMode, mode) }
                 if self.firmwareBlock != nil {
                     self.firmwareBlock = nil
                     self.unreadableStreak = 0
