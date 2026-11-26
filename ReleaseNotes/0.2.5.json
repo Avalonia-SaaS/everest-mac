@@ -1,0 +1,9 @@
+{
+  "version": "0.2.5",
+  "date": "2026-11-26",
+  "headline": "Everest uses next to no processor while it waits in the menu bar.",
+  "items": [
+    { "title": "Much lighter in the background", "detail": "With its window closed, Everest kept redrawing its pages out of sight and used about 15 % of a processor core all day. It now draws nothing until you open it: under 1 %." },
+    { "title": "Lighter with the window open", "detail": "The DisplayPad's live keys are drawn again only when what they show changes." }
+  ]
+}
