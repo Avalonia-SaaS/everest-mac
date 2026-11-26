@@ -1,0 +1,10 @@
+{
+  "version": "0.2.4",
+  "date": "2026-11-26",
+  "headline": "A DisplayPad that stops showing pictures is reset by itself, and the dial stays on the mode you chose.",
+  "items": [
+    { "title": "DisplayPad brought back on its own", "detail": "After a Mac restart, the DisplayPad could keep answering its keys while showing nothing until it was unplugged. Everest now resets its USB connection, as a replug would, and redraws the keys. If that is not enough, the app says so and the keys keep working." },
+    { "title": "Dial mode", "detail": "The Displays page now shows the mode Everest applies, and the sidebar what the dial actually shows. After a restart, the app could show Volume selected while the dial was on the clock." },
+    { "title": "Quieter log", "detail": "The listener's log no longer fills up with live DisplayPad keys, and the previous log is kept as daemon.log.1." }
+  ]
+}
