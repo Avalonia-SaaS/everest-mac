@@ -537,6 +537,8 @@ extension L10n {
         "pad.unsupportedNote": "Everest only writes to firmware 8, the version it was tested with, and leaves this pad alone.",
         "pad.noAnswer": "DisplayPad not responding",
         "pad.noAnswerNote": "It is plugged in but does not answer: wait a few seconds, or plug it straight into the Mac.",
+        "pad.stalled": "DisplayPad not drawing",
+        "pad.stalledNote": "Its keys work but it no longer takes pictures, even after a reset: unplug it and plug it in again.",
         "section.displaypad.subtitle": "Twelve screen keys, each with a picture and a macOS action",
         "pad.connected": "DisplayPad connected",
         "pad.connectedNote": "Pictures are sent within a second of any change; the pad keeps them until it is unplugged.",

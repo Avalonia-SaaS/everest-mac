@@ -537,6 +537,8 @@ extension L10n {
         "pad.unsupportedNote": "Everest schreibt nur auf Firmware 8, die getestete Version, und lässt dieses Pad in Ruhe.",
         "pad.noAnswer": "DisplayPad antwortet nicht",
         "pad.noAnswerNote": "Es ist angeschlossen, antwortet aber nicht: einige Sekunden warten oder direkt am Mac anschließen.",
+        "pad.stalled": "DisplayPad zeigt nichts an",
+        "pad.stalledNote": "Die Tasten funktionieren, aber es nimmt auch nach einem Zurücksetzen keine Bilder mehr an: ab- und wieder anstecken.",
         "section.displaypad.subtitle": "Zwölf Display-Tasten, jede mit einem Bild und einer macOS-Aktion",
         "pad.connected": "DisplayPad verbunden",
         "pad.connectedNote": "Bilder werden innerhalb einer Sekunde nach jeder Änderung gesendet; das Pad behält sie, bis es ausgesteckt wird.",

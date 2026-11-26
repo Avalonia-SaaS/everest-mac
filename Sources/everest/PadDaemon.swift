@@ -32,9 +32,23 @@ enum PadDaemon {
         t.start()
     }
 
+    /// How a session ended.
+    enum Outcome {
+        /// The pad is gone or its handle is stale (unplugged, Mac asleep).
+        case gone
+        /// It answers but did not take five pictures in a row.
+        case notDrawing
+    }
+
     private static func run() {
         var waiting: String?
         var retry: TimeInterval = 2
+        // Sessions in a row that ended without a picture taken. The pad can
+        // answer commands and still refuse picture data until it is reset
+        // (seen after a Mac restart): host mode again first, then a USB
+        // reset, then the pad is left as it is, keys still working, with
+        // pictures tried now and then and the app saying to replug it.
+        var stalls = 0
         func note(_ why: String, _ state: PadState) {
             if waiting != why { log(why); waiting = why }
             state.publish()
@@ -44,6 +58,7 @@ enum PadDaemon {
                 guard DisplayPad.isPresent else {
                     note("not connected — waiting for it", PadState(status: .absent))
                     retry = 2
+                    stalls = 0
                     Thread.sleep(forTimeInterval: 2)
                     return
                 }
@@ -65,11 +80,28 @@ enum PadDaemon {
                 }
                 waiting = nil
                 retry = 2
-                log("connected (firmware \(pad.firmware.map(PadProto.firmwareString) ?? "?"))")
-                PadState(status: .connected, firmware: pad.firmware.map(PadProto.firmwareString)).publish()
-                session(pad)
+                let firmware = pad.firmware.map(PadProto.firmwareString)
+                let stuck = stalls >= 2
+                if stalls == 0 { log("connected (firmware \(firmware ?? "?"))") }
+                PadState(status: stuck ? .stalled : .connected, firmware: firmware).publish()
+                let outcome = session(pad, stuck: stuck, stalls: &stalls)
+                let location = pad.transport.locationID
                 pad.close()
-                log("connection lost — reconnecting")
+                switch outcome {
+                case .gone:
+                    log("connection lost — reconnecting")
+                    stalls = 0
+                case .notDrawing:
+                    stalls += 1
+                    if stalls == 1 {
+                        log("no picture taken — setting the pad up again")
+                    } else {
+                        log("still no picture taken — resetting its USB connection, as a replug would")
+                        if let error = DisplayPad.resetUSB(locationID: location) { log("USB reset refused — \(error.localizedDescription)") }
+                        // It leaves USB and comes back with a new handle.
+                        Thread.sleep(forTimeInterval: 2)
+                    }
+                }
                 PadState(status: .noAnswer).publish()
                 Thread.sleep(forTimeInterval: 1)
             }
@@ -106,7 +138,10 @@ enum PadDaemon {
         (try? FileManager.default.attributesOfItem(atPath: Config.file.path))?[.modificationDate] as? Date
     }
 
-    private static func session(_ pad: DisplayPad) {
+    /// `stuck`: the pad did not take pictures even after a USB reset. The
+    /// session then keeps serving its keys and only tries a picture now and
+    /// then; the first one taken puts `stalls` back to 0.
+    private static func session(_ pad: DisplayPad, stuck: Bool, stalls: inout Int) -> Outcome {
         var cfg = Config.load()
         func profile() -> Int { ActiveProfile.current ?? cfg.selectedProfile }
 
@@ -130,12 +165,12 @@ enum PadDaemon {
         var level: Int { night ? 0 : cfg.padBrightness }
 
         while true {
-            let stop: Bool = autoreleasepool {
+            let stop: Outcome? = autoreleasepool {
                 let now = Date()
                 // A long gap means the Mac slept: the pad may have been reset.
                 if now.timeIntervalSince(lastTick) > 10 {
                     log("woke up — setting the pad up again")
-                    guard (try? pad.enable(timeout: 8)) != nil else { return true }
+                    guard (try? pad.enable(timeout: 8)) != nil else { return .gone }
                     shown = shown.map { _ in "-" }
                     brightness = nil
                 }
@@ -178,20 +213,34 @@ enum PadDaemon {
                             }
                             let keys = cfg.padButtons(for: shownProfile)
                             let changed = (0..<PadProto.keyCount).filter { wanted[$0] != shown[$0] }
+                            // Said for a whole redraw (connection, profile,
+                            // brightness), not for live keys changing.
+                            let all = shown.allSatisfy { $0 == "-" }
+                            var taken = false
+                            defer {
+                                if taken {
+                                    if stalls > 0 {
+                                        if stuck { log("pictures taken again") }
+                                        stalls = 0
+                                        PadState(status: .connected, firmware: pad.firmware.map(PadProto.firmwareString)).publish()
+                                    }
+                                }
+                            }
                             if !changed.isEmpty {
                                 try pad.setKeyImages(changed.map { ($0, bgr(for: keys[$0], brightness: level)) }) { k in
                                     shown[k] = wanted[k]
+                                    taken = true
                                 }
-                                if changed.count > 1 { log("profile \(shownProfile): \(changed.count) keys drawn") }
+                                if all { log("profile \(shownProfile): \(changed.count) keys drawn") }
                             }
                             failures = 0
                             lastError = nil
                         } catch let e as DisplayPad.PadError {
-                            if failed("\(e)") { return true }
+                            if failed("\(e)") { return .notDrawing }
                         } catch let e as PadPixelPipe.PipeError {
-                            if failed("\(e)") { return true }
+                            if failed("\(e)") { return .notDrawing }
                         } catch {
-                            return true   // write failed: unplugged
+                            return .gone   // write failed: unplugged
                         }
                     }
 
@@ -200,9 +249,9 @@ enum PadDaemon {
                     if now.timeIntervalSince(lastPing) >= 3 {
                         lastPing = now
                         let answer: Int?
-                        do { answer = try pad.brightness() } catch { return true }   // write failed
+                        do { answer = try pad.brightness() } catch { return .gone }   // write failed
                         missedPings = answer == nil ? missedPings + 1 : 0
-                        if missedPings >= 3 { return true }
+                        if missedPings >= 3 { return .gone }
                     }
                 }
 
@@ -217,19 +266,25 @@ enum PadDaemon {
                     }
                     held = pressed
                 }
-                return false
+                return nil
             }
-            if stop { return }
+            if let stop { return stop }
             Thread.sleep(forTimeInterval: 0.05)
         }
 
         /// A picture did not go through: wait longer each time, say so once,
-        /// and reconnect (host mode again) after five failures in a row.
+        /// and end the session after five failures in a row (`run` sets the
+        /// pad up again, then resets it). A stuck pad's session goes on, for
+        /// its keys, and tries a picture once a minute.
         func failed(_ message: String) -> Bool {
             failures += 1
-            if message != lastError { log("\(message) — retrying"); lastError = message }
-            retryAt = Date().addingTimeInterval(min(30, 0.5 * pow(2, Double(failures))))
-            return failures >= 5
+            if message != lastError {
+                log(stuck ? "\(message) — unplug the DisplayPad and plug it in again; trying once a minute"
+                          : "\(message) — retrying")
+                lastError = message
+            }
+            retryAt = Date().addingTimeInterval(stuck ? 60 : min(30, 0.5 * pow(2, Double(failures))))
+            return !stuck && failures >= 5
         }
     }
 }
@@ -237,7 +292,9 @@ enum PadDaemon {
 /// What the daemon knows about the pad, for the app's status line
 /// (`.pad-state` in the config directory).
 struct PadState: Codable, Equatable {
-    enum Status: String, Codable { case absent, noAnswer, unsupported, connected }
+    /// `stalled`: it answers and its keys work, but it takes no picture,
+    /// even after a USB reset; a replug clears it.
+    enum Status: String, Codable { case absent, noAnswer, unsupported, connected, stalled }
     var status: Status
     var firmware: String?
 
@@ -289,7 +346,7 @@ enum PadCommand {
         let rest = Array(args.dropFirst())
         // Check the arguments before taking the pad.
         switch sub {
-        case "info", "keys": break
+        case "info", "keys", "reset": break
         case "image", "color": guard rest.count >= 2 else { usage(); exit(1) }; _ = key(rest[0])
         case "clear": if let k = rest.first { _ = key(k) }
         case "brightness":
@@ -297,6 +354,20 @@ enum PadCommand {
         default: usage(); exit(1)
         }
         let color = sub == "color" ? parseColor(rest[1]) : nil
+
+        if sub == "reset" {
+            // The reset takes the whole device: no session of ours is open.
+            guard DisplayPad.isPresent else { fail("Error: \(DisplayPad.PadError.notFound)") }
+            PadBusy.set()
+            defer { PadBusy.clear() }
+            if let error = DisplayPad.resetUSB(locationID: nil) { PadBusy.clear(); fail("Error: USB reset refused (\(error.localizedDescription))") }
+            let back = Date().addingTimeInterval(10)
+            Thread.sleep(forTimeInterval: 1)
+            while !DisplayPad.isPresent && Date() < back { Thread.sleep(forTimeInterval: 0.3) }
+            print(DisplayPad.isPresent ? "DisplayPad reset: it is back on USB (`everest listen` redraws its keys)"
+                                       : "DisplayPad reset, but it has not come back yet: unplug it and plug it in again")
+            return
+        }
 
         PadBusy.set()
         func bail(_ message: String) -> Never { PadBusy.clear(); fail(message) }
@@ -360,6 +431,7 @@ enum PadCommand {
           clear [1-12]              blank one key or all of them
           brightness <0-100>        redraw the keys at that brightness (not saved)
           keys [seconds]            print key presses
+          reset                     reset its USB port, as a replug would (keys redrawn by `everest listen`)
         Keys and pictures that stay belong in the app (DisplayPad page) or
         config.json (`pad` in each profile); `everest listen` applies them.
         """)

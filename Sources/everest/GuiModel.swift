@@ -321,9 +321,13 @@ final class EverestModel: ObservableObject {
                 return
             }
             let p = Int(kb.currentProfile())
+            // The dial can change from its own menu, from the daemon (at its
+            // start, on a profile switch) or from night mode: follow it.
+            let mode = kb.state().map { $0.mainMode?.rawValue ?? "?" }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.connected = true
+                if let mode, mode != self.dialMode { self.dialMode = mode }
                 if self.firmwareBlock != nil {
                     self.firmwareBlock = nil
                     self.unreadableStreak = 0

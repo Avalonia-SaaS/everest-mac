@@ -75,7 +75,7 @@ enum SelfTest {
 
         // State report (11 14).
         if let state = kb.state() {
-            let mode = Proto.MainMode.allCases.first { $0.menuByte == state.modeByte }
+            let mode = state.mainMode
             check("state report parsed (11 14)", true, "\(state.attachedSummary), dial: \(mode?.rawValue ?? String(format: "0x%02x", state.modeByte))")
             check("dial mode is a known menu", mode != nil)
         } else {

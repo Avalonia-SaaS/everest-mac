@@ -537,6 +537,8 @@ extension L10n {
         "pad.unsupportedNote": "Everest solo escribe en el firmware 8, la versión probada, y deja este pad en paz.",
         "pad.noAnswer": "El DisplayPad no responde",
         "pad.noAnswerNote": "Está conectado pero no responde: espera unos segundos o conéctalo directamente al Mac.",
+        "pad.stalled": "El DisplayPad no muestra nada",
+        "pad.stalledNote": "Sus teclas funcionan, pero ya no acepta imágenes, ni siquiera tras un reinicio: desconéctalo y vuelve a conectarlo.",
         "section.displaypad.subtitle": "Doce teclas con pantalla, cada una con una imagen y una acción de macOS",
         "pad.connected": "DisplayPad conectado",
         "pad.connectedNote": "Las imágenes se envían en menos de un segundo tras cada cambio; el pad las conserva hasta que se desconecta.",

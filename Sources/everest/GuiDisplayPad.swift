@@ -159,6 +159,8 @@ struct DisplayPadPage: View {
                     tr("pad.unsupported", model.padState?.firmware ?? "?"), tr("pad.unsupportedNote"))
         case .noAnswer:
             return ("hourglass", Theme.amber, tr("pad.noAnswer"), tr("pad.noAnswerNote"))
+        case .stalled:
+            return ("exclamationmark.triangle.fill", Theme.amber, tr("pad.stalled"), tr("pad.stalledNote"))
         default:
             return ("checkmark.circle.fill", Theme.success, tr("pad.connected"), tr("pad.connectedNote"))
         }
@@ -433,6 +435,7 @@ struct DisplayPadCard: View {
         switch model.padState?.status {
         case .unsupported: return tr("pad.unsupported", model.padState?.firmware ?? "?")
         case .noAnswer: return tr("pad.noAnswer")
+        case .stalled: return tr("pad.stalled")
         default: return model.daemonActive ? tr("overview.actionsActive") : tr("daemon.stopped")
         }
     }

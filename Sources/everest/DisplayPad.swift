@@ -135,6 +135,39 @@ final class DisplayPad {
         return false
     }
 
+    /// Resets the pad's USB port and lets macOS enumerate it again, as
+    /// unplugging it would. For a pad that answers commands but no longer
+    /// drains its picture endpoint (seen after a Mac restart): host mode and
+    /// reconnecting do not clear that, a replug does. Nothing is sent to the
+    /// pad itself; its pictures are in RAM and are lost, so the caller
+    /// redraws. No session may be open: the reset takes the device.
+    @discardableResult
+    static func resetUSB(locationID: Int?) -> Error? {
+        var it: io_iterator_t = 0
+        let match = IOServiceMatching("IOUSBHostDevice") as NSMutableDictionary
+        match["idVendor"] = Transport.vendorID
+        match["idProduct"] = PadProto.productID
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, match, &it) == KERN_SUCCESS else { return PadError.notFound }
+        defer { IOObjectRelease(it) }
+        while case let s = IOIteratorNext(it), s != 0 {
+            defer { IOObjectRelease(s) }
+            let location = IORegistryEntryCreateCFProperty(s, "locationID" as CFString, kCFAllocatorDefault, 0)?
+                .takeRetainedValue() as? Int
+            guard locationID == nil || location == locationID else { continue }
+            do {
+                let device = try IOUSBHostDevice(__ioService: s, options: [], queue: nil, interestHandler: nil)
+                // After a successful reset the object has no connection left;
+                // destroy only releases what is still there.
+                defer { device.destroy() }
+                try device.reset()
+                return nil
+            } catch {
+                return error
+            }
+        }
+        return PadError.notFound
+    }
+
     /// Opens the pad, checks its firmware and only then switches it to host
     /// mode. `startup` is how long to keep asking: a pad just plugged in
     /// needs a few seconds before it answers. It answers `11 00` before host

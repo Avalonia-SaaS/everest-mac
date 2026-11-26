@@ -95,7 +95,7 @@ enum Proto {
     static func displayBrightness(from settings: [UInt8], byte: UInt8) -> [UInt8]? {
         guard settings.count >= 33, settings[0] == 0x11, settings[1] == 0x14 else { return nil }
         let state = DeviceState(raw: settings)
-        guard let mode = MainMode.allCases.first(where: { $0.menuByte == state.modeByte }) else { return nil }
+        guard let mode = state.mainMode else { return nil }
         var p = modeSwitch(deviceBytes: state.deviceBytes, mode: mode)
         for i in 23...32 { p[i] = byte }
         return p
@@ -217,6 +217,8 @@ struct DeviceState {
 
     /// Byte 10 — current dial menu (0x01 image, 0x11 clock, ...).
     var modeByte: UInt8 { raw.count > 10 ? raw[10] : 0x00 }
+    /// The dial mode the keyboard is on, nil for a byte this code does not know.
+    var mainMode: Proto.MainMode? { Proto.MainMode.allCases.first { $0.menuByte == modeByte } }
 
     /// FW_EXTEND_INFO (from the Windows SDK, offsets documented by the
     /// BaseCamp-Linux probe): the keyboard's own account of what is attached.

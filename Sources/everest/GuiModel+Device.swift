@@ -56,10 +56,7 @@ extension EverestModel {
             let layoutCode = kb.layoutCode
             let state = kb.state()
             kb.close()
-            var mode = "—"
-            if let s = state {
-                mode = Proto.MainMode.allCases.first(where: { $0.menuByte == s.modeByte })?.rawValue ?? "?"
-            }
+            let mode = state.map { $0.mainMode?.rawValue ?? "?" } ?? "—"
             let summary: String = {
                 guard let s = state else { return tr("device.everestMax") }
                 switch (s.mmDockPlugged, s.numpadPlugged) {
@@ -84,7 +81,11 @@ extension EverestModel {
                 self?.dialMode = mode
                 self?.firmware = fw
                 self?.firmwareBlock = nil
-                if Proto.MainMode(rawValue: mode) != nil { self?.config.mainDisplayMode = mode }
+                // What the dial shows now, not the setting: `mainDisplayMode`
+                // changes only from the Displays page or a profile's dial mode,
+                // and the daemon puts the dial back on it at each start. The
+                // keyboard read at launch may predate that (seen after a Mac
+                // restart: the app showed the old mode, the daemon set the saved one).
             }
         }
     }

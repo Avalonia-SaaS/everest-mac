@@ -32,6 +32,18 @@ because no kernel driver claims it.
   its screen stayed black; plugged into the Mac directly, it lit up.
 - Pictures are kept in RAM until power is lost, so the daemon sends all twelve
   again on every connection and after the Mac wakes.
+- After a Mac restart (November 2026, firmware 8, pad plugged into the Mac),
+  the pad answered every command, said it was ready for each picture, then
+  never drained its pixel endpoint: every transfer timed out, host mode again
+  changed nothing, a replug fixed it. The daemon now escalates: five failed
+  pictures end the session (host mode again); a second such session resets
+  the pad's USB port (`IOUSBHostDevice.reset()`, `DisplayPad.resetUSB`), which
+  re-enumerates it like a replug; if pictures still fail, it keeps serving the
+  keys, tries a picture once a minute and publishes `stalled` for the app
+  ("unplug it and plug it in again"). `everest pad reset` does the USB reset
+  by hand. The reset is a USB port reset, not a pad command: nothing is
+  written to the pad. Checked on hardware: the pad is back in about 1.5 s and
+  the daemon redraws its keys.
 
 ## Firmware gate
 

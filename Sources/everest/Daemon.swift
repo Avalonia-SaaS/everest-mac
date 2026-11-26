@@ -270,8 +270,11 @@ enum Daemon {
                     stderr("rx \(packet.prefix(16).map { String(format: "%02x", $0) }.joined(separator: " "))")
                 }
                 if packet[0] == 0x11 && packet.count > 1 && (packet[1] == 0x14 || packet[1] == 0x00) { lastReply = now }
+                // Only in an actual night: at start, `nightApplied` is also
+                // true for a keyboard left dark by an ended night, so that the
+                // next check runs the morning steps.
                 if nightApplied == true, packet.count >= 33, packet[0] == 0x11, packet[1] == 0x14,
-                   Proto.displayBytes(packet) != Proto.displaysOff, displaysFixes < 3 {
+                   Proto.displayBytes(packet) != Proto.displaysOff, displaysFixes < 3, NightMode.active {
                     displaysFixes += 1
                     log("night mode: the keyboard's screens are on — dark again")
                     nightApplied = nil   // the night steps again, at the next check

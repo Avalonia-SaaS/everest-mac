@@ -537,6 +537,8 @@ extension L10n {
         "pad.unsupportedNote": "Everest kirjoittaa vain laiteohjelmistoon 8, testattuun versioon, eikä koske tähän padiin.",
         "pad.noAnswer": "DisplayPad ei vastaa",
         "pad.noAnswerNote": "Se on kytketty, mutta ei vastaa: odota muutama sekunti tai kytke se suoraan Maciin.",
+        "pad.stalled": "DisplayPad ei näytä mitään",
+        "pad.stalledNote": "Näppäimet toimivat, mutta se ei enää ota kuvia vastaan edes nollauksen jälkeen: irrota se ja kytke uudelleen.",
         "section.displaypad.subtitle": "Kaksitoista näyttönäppäintä, jokaisessa kuva ja macOS-toiminto",
         "pad.connected": "DisplayPad yhdistetty",
         "pad.connectedNote": "Kuvat lähetetään sekunnin kuluessa jokaisesta muutoksesta; pad säilyttää ne, kunnes se irrotetaan.",

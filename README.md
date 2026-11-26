@@ -201,7 +201,7 @@ To open at login, tick **System → Launch Everest at login**
   set `"keepFlashActions": true` in the config to keep them.
 
 Configuration lives in `~/.config/everest-mac/` (`config.json`, `icons/`,
-`daemon.log`).
+`daemon.log`, and `daemon.log.1`, the previous one).
 
 ## Command line
 
@@ -213,6 +213,7 @@ everest icon 1 picture.png     # send a picture to D1 (converted to 72×72)
 everest mode cpu               # dial shows the CPU load
 everest pad image 3 logo.png   # picture on DisplayPad key 3 (until it is unplugged)
 everest pad brightness 50      # DisplayPad backlight
+everest pad reset              # reset the DisplayPad's USB port, as a replug would
 everest listen                 # run the D1–D4 and DisplayPad actions (the app does this for you)
 everest recover                # clear a stuck picture transfer
 everest help                   # everything else
@@ -249,6 +250,8 @@ flags — that lighting and picture uploads still work. Please run
 | The keyboard stops answering after an interrupted upload | `everest recover`, or replug |
 | macOS asks to use the MRRCalendar token after upgrading to 0.2.0 | The app's signature changed once: choose *Always Allow*, or paste the token again |
 | The DisplayPad stays black | Plug it straight into the Mac (some hubs do not power its screen), and let the app or `everest listen` run: the pad shows nothing until a host switches it on |
+| "DisplayPad not drawing" (keys work, screens black) | It stopped taking pictures and a USB reset did not help: unplug it and plug it in again |
+| The dial is not on the mode chosen in the app | The app puts the dial back on its setting each time it starts: choose the mode on the **Displays** page (one chosen from the dial's own menu lasts until the next start) |
 
 ## Limitations
 

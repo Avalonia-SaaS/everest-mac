@@ -537,6 +537,8 @@ extension L10n {
         "pad.unsupportedNote": "Everest skriver bara till firmware 8, den testade versionen, och lämnar den här plattan i fred.",
         "pad.noAnswer": "DisplayPad svarar inte",
         "pad.noAnswerNote": "Den är ansluten men svarar inte: vänta några sekunder eller anslut den direkt till Macen.",
+        "pad.stalled": "DisplayPad visar ingenting",
+        "pad.stalledNote": "Knapparna fungerar, men den tar inte emot bilder längre, inte ens efter en återställning: koppla ur den och anslut den igen.",
         "section.displaypad.subtitle": "Tolv skärmtangenter, var och en med en bild och en macOS-åtgärd",
         "pad.connected": "DisplayPad ansluten",
         "pad.connectedNote": "Bilder skickas inom en sekund efter varje ändring; plattan behåller dem tills den kopplas ur.",

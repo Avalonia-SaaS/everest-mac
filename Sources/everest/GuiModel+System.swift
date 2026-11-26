@@ -24,8 +24,12 @@ extension EverestModel {
         // when macOS refuses to post key events.
         let logURL = Config.directory.appendingPathComponent("daemon.log")
         try? FileManager.default.createDirectory(at: Config.directory, withIntermediateDirectories: true)
+        // Keep it small, but keep the previous one: the run that ended (a
+        // restart, a crash) is often the one to read.
         if let size = (try? FileManager.default.attributesOfItem(atPath: logURL.path))?[.size] as? Int, size > 512_000 {
-            try? FileManager.default.removeItem(at: logURL)   // keep it small
+            let previous = Config.directory.appendingPathComponent("daemon.log.1")
+            try? FileManager.default.removeItem(at: previous)
+            try? FileManager.default.moveItem(at: logURL, to: previous)
         }
         if !FileManager.default.fileExists(atPath: logURL.path) {
             FileManager.default.createFile(atPath: logURL.path, contents: nil)

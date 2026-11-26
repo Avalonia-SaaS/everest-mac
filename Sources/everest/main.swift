@@ -143,7 +143,7 @@ enum Command {
         }
         print("State    : \(state.raw.map { String(format: "%02x", $0) }.prefix(16).joined(separator: " "))")
         print("Attached : \(state.attachedSummary)")
-        let modeName = Proto.MainMode.allCases.first { $0.menuByte == state.modeByte }?.rawValue ?? String(format: "0x%02x", state.modeByte)
+        let modeName = state.mainMode?.rawValue ?? String(format: "0x%02x", state.modeByte)
         print("Dial mode: \(modeName)")
         print("Device   : \(state.deviceBytes.map { String(format: "%02x", $0) }.joined(separator: " "))")
         let profile = kb.currentProfile()

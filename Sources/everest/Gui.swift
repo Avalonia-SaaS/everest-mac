@@ -416,6 +416,7 @@ struct DeviceCard: View {
         switch status {
         case .unsupported: line = tr("pad.unsupported", model.padState?.firmware ?? "?")
         case .noAnswer: line = tr("pad.noAnswer")
+        case .stalled: line = tr("pad.stalled")
         default: line = tr("section.displaypad.title")
         }
         return VStack(alignment: .leading, spacing: 10) {
@@ -427,8 +428,9 @@ struct DeviceCard: View {
                 Self.miniStat(tr("device.firmware"), model.padState?.firmware ?? "—")
                 Self.miniStat(tr("pad.brightness"), "\(model.config.padBrightness) %")
             }
-            // The orange line above already says when the pad is not answering.
-            if !model.daemonActive || status == nil || status == .connected {
+            // The orange line above already says when the pad is not answering
+            // (a stalled pad still answers: its keys work).
+            if !model.daemonActive || status == nil || status == .connected || status == .stalled {
                 HStack(spacing: 6) {
                     StatusDot(on: model.daemonActive, color: Theme.indigo)
                     Text(model.daemonActive ? tr("pad.keysActive") : tr("daemon.stopped"))

@@ -537,6 +537,8 @@ extension L10n {
         "pad.unsupportedNote": "Everest skriver bare til fastvare 8, den testede versjonen, og lar denne paden være.",
         "pad.noAnswer": "DisplayPad svarer ikke",
         "pad.noAnswerNote": "Den er koblet til, men svarer ikke: vent noen sekunder, eller koble den direkte til Macen.",
+        "pad.stalled": "DisplayPad viser ingenting",
+        "pad.stalledNote": "Tastene virker, men den tar ikke imot bilder lenger, selv etter en tilbakestilling: koble den fra og til igjen.",
         "section.displaypad.subtitle": "Tolv skjermtaster, hver med et bilde og en macOS-handling",
         "pad.connected": "DisplayPad tilkoblet",
         "pad.connectedNote": "Bilder sendes innen et sekund etter hver endring; paden beholder dem til den kobles fra.",
