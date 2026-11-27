@@ -134,7 +134,7 @@ if [ "$1" = "--install" ]; then
     [ $WAS_RUNNING = 1 ] && open "/Applications/$APP"
 fi
 
-# A zip of a local build, for testing (CI keeps it as an artifact). It is only
+# A zip of a local build, for testing (CI builds it, uploads nothing). It is only
 # ad-hoc signed: what people download comes from scripts/release.sh.
 if [ "$1" = "--zip" ]; then
     VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")

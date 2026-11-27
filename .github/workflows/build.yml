@@ -1,5 +1,11 @@
 name: build
-on: [push, pull_request]
+on:
+  push:
+    # main and release tags only: archive/* tags point at old commits whose
+    # workflow still used a GitHub macOS runner.
+    branches: [main]
+    tags: ['v*']
+  pull_request:
 jobs:
   build:
     # Self-hosted Mac Studio runner on a public fork: never run code from a fork's PR.
@@ -11,10 +17,7 @@ jobs:
         run: swift test
       - name: Build
         run: swift build -c release
+      # Checks the bundle and its zip; nothing is uploaded to GitHub (no
+      # artifact storage): releases come from scripts/release.sh.
       - name: Build the app bundle
         run: ./make-app.sh --zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Everest-app
-          path: Everest-*.zip
-          retention-days: 3
